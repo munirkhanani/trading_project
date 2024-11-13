@@ -1,0 +1,716 @@
+<td>${data.RSI.toFixed(2)}</td>  <!-- Display RSI value -->
+
+
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <title>Live Data Display</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+    h1{
+            text-align: center;
+        }
+        th {
+            background-color: #F6995C;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Trading Data</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Close</th>
+                <th>Volume</th>
+                <th>RSI</th> 
+            </tr>
+        </thead>
+        <tbody id="data-table">
+            <tr>
+                <td colspan="6">Waiting for data...</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8766');
+        let chart = LightweightCharts.createChart(document.getElementById('chart'), {
+            width: 800,
+            height: 400,
+        });
+
+        let candlestickSeries = chart.addCandlestickSeries();
+        let rsiData = [];
+
+        ws.onopen = function() {
+            console.log("WebSocket connection opened.");
+            //ws.send('message from the frontend')
+        };
+
+        
+
+        ws.onmessage = function(event) {
+            const message = event.data
+            console.log('this is the event.data log: ', event.data)
+            console.log("Received raw:", message);
+
+            // Parse the JSON string into an object
+            const data = JSON.parse(message);
+            console.log("Received data:", data);
+
+            const tableBody = document.getElementById('data-table');
+            tableBody.innerHTML = `
+                <tr>
+                    <td>${data.Date}</td>
+                    <td>${data.Open}</td>
+                    <td>${data.High}</td>
+                    <td>${data.Low}</td>
+                    <td>${data.Close}</td>
+                    <td>${data.Volume}</td>
+                    
+                    <td id="rsi-value">Calculating...</td>
+                </tr>
+            `;        
+        };
+
+        function sendMessage() {
+            message = 'message from javascript socket'
+            ws.send(message);
+                console.log("Sent:", message);
+        }
+
+        ws.onclose = function() {
+            console.log("Connection closed.");
+        };
+
+        ws.onerror = function(error) {
+            console.log("WebSocket error:", error);
+        };
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Trading Data with RSI</title>
+    <style>
+        #chart{
+            width: 100%;
+            height: 400px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+        h1 {
+            text-align: center;
+        }
+        th {
+            background-color: #F6995C;
+        }
+    </style>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <h1>Live Trading Data with RSI</h1>
+    <div id="chart"></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Close</th>
+                <th>Volume</th>
+                <th>RSI</th>
+            </tr>
+        </thead>
+        <tbody id="data-table">
+            <tr>
+                <td colspan="7">Waiting for data...</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8766');
+
+        let chart = LightweightCharts.createChart(document.getElementById('chart'), {
+            width: 800,
+            height: 400,
+        });
+
+        let candlestickSeries = chart.addCandlestickSeries();
+
+        let rsiSeries = chart.addLineSeries({
+            color: 'blue',
+            lineWidth: 2,
+        });
+
+        let rsiData = [];
+
+        ws.onopen = function() {
+            console.log("WebSocket connection opened.");
+        };
+
+        ws.onmessage = function(event) {
+            const message = event.data;
+            console.log('Received data:', message);
+
+            const data = JSON.parse(message);
+
+            // Update table
+            const tableBody = document.getElementById('data-table');
+            tableBody.innerHTML = `
+                <tr>
+                    <td>${data.Date}</td>
+                    <td>${data.Open}</td>
+                    <td>${data.High}</td>
+                    <td>${data.Low}</td>
+                    <td>${data.Close}</td>
+                    <td>${data.Volume}</td>
+                    <td id="rsi-value">Calculating...</td>
+                </tr>
+            `;
+
+            // Update chart
+            candlestickSeries.update({
+                time: new Date(data.Date).getTime() / 1000,
+                open: data.Open,
+                high: data.High,
+                low: data.Low,
+                close: data.Close,
+            });
+
+            // Store data for RSI calculation
+            rsiData.push({ close: data.Close, time: new Date(data.Date).getTime() / 1000 });
+
+            if (rsiData.length > 14) {
+                let rsiValue = calculateRSI(rsiData);
+                 // Update RSI series on the chart
+                rsiSeries.update({
+                    time: new Date(data.Date).getTime() / 1000,
+                    value: rsiValue
+                });
+                document.getElementById('rsi-value').innerText = rsiValue.toFixed(2);
+            }
+        };
+
+        ws.onclose = function() {
+            console.log("Connection closed.");
+        };
+
+        ws.onerror = function(error) {
+            console.log("WebSocket error:", error);
+        };
+
+        function calculateRSI(data, period = 14) {
+            let gains = 0;
+            let losses = 0;
+
+            for (let i = data.length - period; i < data.length; i++) {
+                let change = data[i].close - data[i - 1].close;
+
+                if (change > 0) {
+                    gains += change;
+                } else {
+                    losses -= change;
+                }
+            }
+
+            let averageGain = gains / period;
+            let averageLoss = losses / period;
+
+            let rs = averageGain / averageLoss;
+            let rsi = 100 - (100 / (1 + rs));
+
+            return rsi;
+        }
+    </script>
+</body>
+</html> 
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Trading Data with RSI</title>
+    <style>
+        #chart {
+            width: 100%;
+            height: 600px; /* Total height of the chart area */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+        h1 {
+            text-align: center;
+        }
+        th {
+            background-color: #F6995C;
+        }
+    </style>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <h1>Live Trading Data with RSI</h1>
+    <div id="chart"></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Close</th>
+                <th>Volume</th>
+                <th>RSI</th>
+            </tr>
+        </thead>
+        <tbody id="data-table">
+            <tr>
+                <td colspan="7">Waiting for data...</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8766');
+
+        // Create the main chart for candlesticks
+        let chart = LightweightCharts.createChart(document.getElementById('chart'), {
+            width: 800,
+            height: 600, // Total height of the chart area
+        });
+
+        // Create the candlestick series
+        let candlestickSeries = chart.addCandlestickSeries();
+
+        // Create the RSI histogram series
+        let rsiSeries = chart.addHistogramSeries({
+            color: 'blue',
+            priceFormat: {
+                type: 'custom',
+                formatter: function (price) {
+                    return price.toFixed(2);
+                }
+            },
+            priceScaleId: '',
+            scaleMargins: {
+                top: 0.9, // Position the RSI series at the bottom
+                bottom: 0,
+            },
+        });
+
+        // Adjust the scale of the RSI series to be smaller
+        rsiSeries.priceScale().applyOptions({
+            scaleMargins: {
+                top: 0.9, // The RSI chart takes up approximately 10% of the height
+                bottom: 0,
+            },
+            borderVisible: false,
+        });
+
+        let candlestickData = [];
+        let rsiData = [];
+        let closePrices = [];
+
+        ws.onopen = function() {
+            console.log("WebSocket connection opened.");
+        };
+
+        ws.onmessage = function(event) {
+            const message = event.data;
+            console.log('Received data:', message);
+
+            const data = JSON.parse(message);
+
+            // Update table
+            const tableBody = document.getElementById('data-table');
+            tableBody.innerHTML = `
+                <tr>
+                    <td>${data.Date}</td>
+                    <td>${data.Open}</td>
+                    <td>${data.High}</td>
+                    <td>${data.Low}</td>
+                    <td>${data.Close}</td>
+                    <td>${data.Volume}</td>
+                    <td id="rsi-value">Calculating...</td>
+                </tr>
+            `;
+
+            // Update candlestick chart
+            const candlestickPoint = {
+                time: new Date(data.Date).getTime() / 1000,
+                open: data.Open,
+                high: data.High,
+                low: data.Low,
+                close: data.Close,
+            };
+
+            candlestickData.push(candlestickPoint);
+            candlestickSeries.setData(candlestickData);
+
+            // Store close prices for RSI calculation
+            closePrices.push({
+                time: new Date(data.Date).getTime() / 1000,
+                value: data.Close
+            });
+
+            if (closePrices.length >= 14) {
+                const rsiValue = calculateRSI(closePrices);
+                const rsiPoint = {
+                    time: new Date(data.Date).getTime() / 1000,
+                    value: rsiValue
+                };
+
+                rsiData.push(rsiPoint);
+                rsiSeries.setData(rsiData);
+
+                document.getElementById('rsi-value').innerText = rsiValue.toFixed(2);
+            }
+        };
+
+        ws.onclose = function() {
+            console.log("Connection closed.");
+        };
+
+        ws.onerror = function(error) {
+            console.log("WebSocket error:", error);
+        };
+
+        function calculateRSI(data, period = 14) {
+            if (data.length < period) {
+                return NaN; // Not enough data to calculate RSI
+            }
+
+            let gains = 0;
+            let losses = 0;
+
+            for (let i = data.length - period; i < data.length; i++) {
+                let change = data[i].value - data[i - 1].value;
+
+                if (change > 0) {
+                    gains += change;
+                } else {
+                    losses -= change;
+                }
+            }
+
+            let averageGain = gains / period;
+            let averageLoss = losses / period;
+
+            if (averageLoss === 0) {
+                return 100; // RSI will be 100 if there are no losses
+            }
+
+            let rs = averageGain / averageLoss;
+            let rsi = 100 - (100 / (1 + rs));
+
+            return rsi;
+        }
+    </script>
+</body>
+</html>
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Trading Data with RSI and Moving Averages</title>
+    <style>
+        #chart {
+            width: 100%;
+            height: 600px; /* Total height of the chart area */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+        h1 {
+            text-align: center;
+        }
+        th {
+            background-color: #F6995C;
+        }
+    </style>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <h1>Live Trading Data with RSI and Moving Averages</h1>
+    <div id="chart"></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Close</th>
+                <th>Volume</th>
+                <th>RSI</th>
+                <th>SMA 40</th>
+                <th>SMA 200</th>
+            </tr>
+        </thead>
+        <tbody id="data-table">
+            <tr>
+                <td colspan="7">Waiting for data...</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8766');
+
+        // Create the main chart for candlesticks
+        let chart = LightweightCharts.createChart(document.getElementById('chart'), {
+            width: 800,
+            height: 600, // Total height of the chart area
+        });
+
+        // Create the candlestick series
+        let candlestickSeries = chart.addCandlestickSeries();
+
+        // Create the RSI histogram series
+        let rsiSeries = chart.addAreaSeries({
+            topColor: '#2962FF',
+            bottomColor: 'rgba(41, 98, 255, 0.28)',
+            lineColor: '#2962FF',
+            lineWidth: 2,            
+            priceFormat: {
+                type: 'custom',
+                formatter: function (price) {
+                    return price.toFixed(2);
+                }
+            },
+            priceScaleId: '',
+            scaleMargins: {
+                top: 0.9, // Position the RSI series at the bottom
+                bottom: 0,
+            },
+        });
+
+        // Adjust the scale of the RSI series to be smaller
+        rsiSeries.priceScale().applyOptions({
+            scaleMargins: {
+                top: 0.9, // The RSI chart takes up approximately 10% of the height
+                bottom: 0,
+            },
+            borderVisible: false,
+        });
+
+        // Create line series for 200 and 40 moving averages
+        let ma200Series = chart.addLineSeries({
+            color: 'red',
+            lineWidth: 2,
+        });
+
+        let ma40Series = chart.addLineSeries({
+            color: 'green',
+            lineWidth: 2,
+        });
+
+        let candlestickData = [];
+        let rsiData = [];
+        let closePrices = [];
+
+        let rsiValue = 'Calculating...';
+        let sma40Value = 'Calculating...';
+        let sma200Value = 'Calculating...';
+
+        ws.onopen = function() {
+            console.log("WebSocket connection opened.");
+        };
+
+        ws.onmessage = function(event) {
+            const message = event.data;
+            console.log('Received data:', message);
+
+            const data = JSON.parse(message);
+
+            // Update table
+            const tableBody = document.getElementById('data-table');
+            tableBody.innerHTML = `
+                <tr>
+                    <td>${data.Date}</td>
+                    <td>${data.Open}</td>
+                    <td>${data.High}</td>
+                    <td>${data.Low}</td>
+                    <td>${data.Close}</td>
+                    <td>${data.Volume}</td>
+                    <td>${rsiValue}</td>
+                    <td>${sma40Value}</td>
+                    <td>${sma200Value}</td>
+                </tr>
+            `;
+
+            // Update candlestick chart
+            const candlestickPoint = {
+                time: new Date(data.Date).getTime() / 1000,
+                open: data.Open,
+                high: data.High,
+                low: data.Low,
+                close: data.Close,
+            };
+
+            candlestickData.push(candlestickPoint);
+            candlestickSeries.setData(candlestickData);
+
+            // Store close prices for RSI and Moving Average calculations
+            closePrices.push({
+                time: new Date(data.Date).getTime() / 1000,
+                value: data.Close
+            });
+
+            if (closePrices.length >= 14) {
+                const rsiValue = calculateRSI(closePrices);
+                const rsiPoint = {
+                    time: new Date(data.Date).getTime() / 1000,
+                    value: rsiValue
+                };
+
+                rsiData.push(rsiPoint);
+                rsiSeries.setData(rsiData);
+
+                document.getElementById('rsi-value').innerText = rsiValue.toFixed(2);
+            }
+
+            // Calculate and update 200-period and 40-period moving averages
+            if (closePrices.length >= 40) {
+                const ma200Value = calculateMA(closePrices, 200);
+                const ma40Value = calculateMA(closePrices, 40);
+
+                if (!isNaN(ma200Value)) {
+                    ma200Series.update({
+                        time: new Date(data.Date).getTime() / 1000,
+                        value: ma200Value
+                    });
+                }
+
+                if (!isNaN(ma40Value)) {
+                    ma40Series.update({
+                        time: new Date(data.Date).getTime() / 1000,
+                        value: ma40Value
+                    });
+                }
+            }
+        };
+
+        ws.onclose = function() {
+            console.log("Connection closed.");
+        };
+
+        ws.onerror = function(error) {
+            console.log("WebSocket error:", error);
+        };
+
+        function calculateRSI(data, period = 14) {
+            if (data.length < period) {
+                return NaN; // Not enough data to calculate RSI
+            }
+
+            let gains = 0;
+            let losses = 0;
+
+            for (let i = data.length - period; i < data.length; i++) {
+                let change = data[i].value - data[i - 1].value;
+
+                if (change > 0) {
+                    gains += change;
+                } else {
+                    losses -= change;
+                }
+            }
+
+            let averageGain = gains / period;
+            let averageLoss = losses / period;
+
+            if (averageLoss === 0) {
+                return 100; // RSI will be 100 if there are no losses
+            }
+
+            let rs = averageGain / averageLoss;
+            let rsi = 100 - (100 / (1 + rs));
+
+            return rsi;
+        }
+
+        function calculateMA(data, period) {
+            if (data.length < period) {
+                return NaN; // Not enough data to calculate moving average
+            }
+
+            let sum = 0;
+
+            for (let i = data.length - period; i < data.length; i++) {
+                sum += data[i].value;
+            }
+
+            return sum / period;
+        }
+    </script>
+</body>
+</html>

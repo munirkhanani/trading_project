@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Trading Data with RSI and Moving Averages</title>
+    <script src="https://cdn.jsdelivr.net/npm/technicalindicators@3.1.0/dist/browser/technicalindicators.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        #chart {
+            width: 100%;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+        h1 {
+            text-align: center;
+        }
+        th {
+            background-color: #F6995C;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Trading Data with RSI and Moving Averages</h1>
+    <div id="chart" style="position: relative;"></div>
+    <div id="rsi-chart" style="position: relative; margin-top: 0px;"></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Close</th>
+                <th>Volume</th>
+                <th>RSI</th>
+                <th>SMA 40</th>
+                <th>SMA 50</th>
+                <th>SMA 200</th>
+            </tr>
+        </thead>
+        <tbody id="data-table">
+            <tr>
+                <td colspan="10">Waiting for data...</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+<script src="{{url_for('static', filename='script.js')}}?v=1" async defer></script>
+
+</html>
